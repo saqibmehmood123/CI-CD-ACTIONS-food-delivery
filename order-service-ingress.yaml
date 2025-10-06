@@ -19,3 +19,17 @@ spec:
             name: order-service
             port:
               number: 80
+      - path: /order/status
+        pathType: Exact
+        backend:
+          service:
+            name: order-service
+            port:
+              number: 80
+      - path: /actuator/health
+        pathType: Exact
+        backend:
+          service:
+            name: order-service
+            port:
+              number: 80
