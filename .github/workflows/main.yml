@@ -1,4 +1,5 @@
 name: Deploy to EKS
+
 on:
   push:
     branches: [ main ]
@@ -6,14 +7,15 @@ on:
 env:
   AWS_REGION: eu-west-3
   ECR_REPOSITORY: food-delivery/order-service
-  EKS_CLUSTER: food-delivery-kubernates
+  EKS_CLUSTER: food-delivery-prod  # Updated cluster name
   DEPLOYMENT_NAME: order-service
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Configure AWS credentials
@@ -43,6 +45,11 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Update the deployment with new image
         kubectl set image deployment/$DEPLOYMENT_NAME \
           order-service=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n default
+        # Wait for rollout to complete
         kubectl rollout status deployment/$DEPLOYMENT_NAME -n default
+        # Verify deployment
+        kubectl get deployments -n default
+        kubectl get pods -n default -l app=order-service
