@@ -1,0 +1,393 @@
+
+🚀 EKS Ingress Setup - The RIGHT Way (Checklist)
+PHASE 1: PREREQUISITES (15 mins)
+bash
+# 1. Verify Cluster & OIDC
+eksctl get cluster --region eu-west-3
+aws iam list-open-id-connect-providers
+
+# 2. Create IAM Policy (if missing)
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
+PHASE 2: SETUP CONTROLLER (10 mins)
+bash
+# 1. Create Service Account with IAM
+eksctl create iamserviceaccount \
+  --cluster=<cluster-name> \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --attach-policy-arn=arn:aws:iam::<account>:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+
+# 2. Install Controller via Helm
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=<cluster-name> \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=eu-west-3 \
+  --set vpcId=<vpc-id>
+PHASE 3: DEPLOY APPLICATION (5 mins)
+bash
+# 1. Deploy App + ClusterIP Service
+kubectl apply -f deployment.yaml
+kubectl apply -f service-clusterip.yaml
+
+# 2. Create Ingress
+kubectl apply -f ingress.yaml
+📁 File Templates:
+service-clusterip.yaml
+yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: my-app
+ingress.yaml
+yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-app
+            port:
+              number: 80
+⏱️ Total Time: 30 minutes
+🔧 Verification:
+bash
+# Check controller
+kubectl get pods -n kube-system | grep load-balancer
+
+# Check ingress (wait 5 mins for ALB)
+kubectl get ingress
+
+# Test
+curl http://$(kubectl get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')/
+This approach avoids all the pitfalls we encountered! 🎯
+
+
+
+
+
+
+        
+📊 Get Complete Ingress Information
+1. Basic Ingress Status
+bash
+kubectl get ingress -o wide
+2. Detailed Ingress Configuration
+bash
+kubectl describe ingress order-service-ingress
+3. Get ALB URL
+bash
+kubectl get ingress order-service-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+echo
+4. Check Controller Status
+bash
+# Controller pods
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+
+# Controller logs
+kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller --tail=10
+5. Check AWS ALB Details
+bash
+# Get ALB ARN and details
+ALB_URL=$(kubectl get ingress order-service-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+aws elbv2 describe-load-balancers --region eu-west-3 --query "LoadBalancers[?DNSName=='$ALB_URL']"
+6. Check Target Groups & Health
+bash
+# Get Target Group
+LB_ARN=$(aws elbv2 describe-load-balancers --region eu-west-3 --query "LoadBalancers[?DNSName=='$ALB_URL'].LoadBalancerArn" --output text)
+TG_ARN=$(aws elbv2 describe-target-groups --load-balancer-arn $LB_ARN --region eu-west-3 --query "TargetGroups[0].TargetGroupArn" --output text)
+
+# Health checks
+aws elbv2 describe-target-groups --target-group-arns $TG_ARN --region eu-west-3 --query 'TargetGroups[0].HealthCheck'
+
+# Target health
+aws elbv2 describe-target-health --target-group-arn $TG_ARN --region eu-west-3
+7. Test Your Application
+bash
+INGRESS_URL=$(kubectl get ingress order-service-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl -v "http://$INGRESS_URL/order"
+Run these commands to get complete information about your working Ingress setup! 🎯
+
+
+
+
+
+
+
+
+////////////////////////////////////
+ kubectl delete ingress order-service-ingress --ignore-not-found=true
+kubectl patch service order-service -p '{"spec":{"type":"ClusterIP"}}'
+
+
+
+
+
+ Step 2: Check OIDC Provider
+bash
+aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[*]" --output table
+
+
+ Step 3: If No OIDC, Create It
+bash
+eksctl utils associate-iam-oidc-provider --cluster=food-delivery-prod --region=eu-west-3 --approve
+
+
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+
+
+
+
+
+Create Service Account with IAM Role
+bash
+eksctl create iamserviceaccount \
+  --cluster=food-delivery-prod \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --attach-policy-arn=arn:aws:iam::884583303090:policy/AWSLoadBalancerControllerIAMPolicy \
+  --override-existing-serviceaccounts \
+  --approve
+
+eksctl create iamserviceaccount \
+  --cluster=food-delivery-prod \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --attach-policy-arn=arn:aws:iam::884583303090:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+
+         Step 5: Install AWS Load Balancer Controller
+bash
+# Install the controller using Helm
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=food-delivery-prod \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=eu-west-3 \
+  --set vpcId=vpc-0eb516cc907a93d32
+
+  Check Service Account in Kubernetes:
+bash
+kubectl get serviceaccount -n kube-system
+🔧 If Service Account Missing, Create It Manually:
+bash
+# Create service account manually
+kubectl create serviceaccount aws-load-balancer-controller -n kube-system
+
+# Add IAM role annotation
+kubectl annotate serviceaccount aws-load-balancer-controller -n kube-system \
+  eks.amazonaws.com/role-arn=arn:aws:iam::884583303090:role/eksctl-food-delivery-prod-addon-iamserviceaccount-kube-sys-Role1-1NQJXZ8JQ1F3H
+
+# Verify
+kubectl get serviceaccount aws-load-balancer-controller -n kube-system -o yaml
+🔧 Restart Deployment:
+bash
+kubectl rollout restart deployment aws-load-balancer-controller -n kube-system
+sleep 60
+kubectl get pods -n kube-system | grep load-balancer
+
+ 
+
+
+
+ kubectl logs -n kube-system aws-load-balancer-controller-5d57ccdf8c-t5jwk
+{"level":"info","ts":"2025-10-05T10:44:48Z","msg":"version","GitVersion":"v2.13.4","GitCommit":"aefed36aa30528e35a73281a5dc131ed26caa0f4","BuildDate":"2025-07-30T20:19:18+0000"}
+saqib@saqib-ThinkPad-T460s:~/Desktop/JavaProjects/FoodDeleivery/Order Service$ kubectl describe pod -n kube-system aws-load-balancer-controller-5d57ccdf8c-t5jwk
+Name:                 aws-load-balancer-controller-5d57ccdf8c-t5jwk
+Namespace:            kube-system
+Priority:             2000001000
+Priority Class Name:  system-node-critical
+Service Account:      aws-load-balancer-controller
+Node:                 fargate-10.0.2.52/10.0.2.52
+Start Time:           Sun, 05 Oct 2025 12:41:21 +0200
+Labels:               app.kubernetes.io/instance=aws-load-balancer-controller
+                      app.kubernetes.io/name=aws-load-balancer-controller
+                      eks.amazonaws.com/fargate-profile=fp-default
+                      pod-template-hash=5d57ccdf8c
+Annotations:          CapacityProvisioned: 0.25vCPU 0.5GB
+                      Logging: LoggingDisabled: LOGGING_CONFIGMAP_NOT_FOUND
+                      kubectl.kubernetes.io/restartedAt: 2025-10-05T12:40:34+02:00
+                      prometheus.io/port: 8080
+                      prometheus.io/scrape: true
+Status:               Running
+IP:                   10.0.2.52
+IPs:
+  IP:           10.0.2.52
+Controlled By:  ReplicaSet/aws-load-balancer-controller-5d57ccdf8c
+Containers:
+  aws-load-balancer-controller:
+    Container ID:  containerd://e15cc10943fb4aa7305f3119b9984a11634338cb0192aa4b8f9b6be1c6c76307
+    Image:         public.ecr.aws/eks/aws-load-balancer-controller:v2.13.4
+    Image ID:      public.ecr.aws/eks/aws-load-balancer-controller@sha256:3a2d5b5ad26460b0f6c50b3e270945611af709e796de03c8fd270212feb1acdb
+    Ports:         9443/TCP (webhook-server), 8080/TCP (metrics-server)
+    Host Ports:    0/TCP (webhook-server), 0/TCP (metrics-server)
+    Args:
+      --cluster-name=food-delivery-prod
+      --ingress-class=alb
+      --aws-region=eu-west-3
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Sun, 05 Oct 2025 12:44:48 +0200
+      Finished:     Sun, 05 Oct 2025 12:44:53 +0200
+    Ready:          False
+    Restart Count:  5
+    Liveness:       http-get http://:61779/healthz delay=30s timeout=10s period=10s #success=1 #failure=2
+    Readiness:      http-get http://:61779/readyz delay=10s timeout=10s period=10s #success=1 #failure=2
+    Environment:
+      AWS_STS_REGIONAL_ENDPOINTS:   regional
+      AWS_DEFAULT_REGION:           eu-west-3
+      AWS_REGION:                   eu-west-3
+      AWS_ROLE_ARN:                 arn:aws:iam::884583303090:role/eksctl-food-delivery-prod-addon-iamserviceaccount-kube-sys-Role1-1NQJXZ8JQ1F3H
+      AWS_WEB_IDENTITY_TOKEN_FILE:  /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+    Mounts:
+      /tmp/k8s-webhook-server/serving-certs from cert (ro)
+      /var/run/secrets/eks.amazonaws.com/serviceaccount from aws-iam-token (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jcw7d (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             False 
+  ContainersReady   False 
+  PodScheduled      True 
+Volumes:
+  aws-iam-token:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  86400
+  cert:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  aws-load-balancer-tls
+    Optional:    false
+  kube-api-access-jcw7d:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason           Age                   From               Message
+  ----     ------           ----                  ----               -------
+  Warning  LoggingDisabled  4m38s                 fargate-scheduler  Disabled logging because aws-logging configmap was not found. configmap "aws-logging" not found
+  Normal   Scheduled        3m53s                 fargate-scheduler  Successfully assigned kube-system/aws-load-balancer-controller-5d57ccdf8c-t5jwk to fargate-10.0.2.52
+  Normal   Pulling          3m52s                 kubelet            Pulling image "public.ecr.aws/eks/aws-load-balancer-controller:v2.13.4"
+  Normal   Pulled           3m49s                 kubelet            Successfully pulled image "public.ecr.aws/eks/aws-load-balancer-controller:v2.13.4" in 3.52s (3.52s including waiting)
+  Normal   Created          119s (x5 over 3m49s)  kubelet            Created container aws-load-balancer-controller
+  Normal   Started          119s (x5 over 3m49s)  kubelet            Started container aws-load-balancer-controller
+  Normal   Pulled           119s (x4 over 3m43s)  kubelet            Container image "public.ecr.aws/eks/aws-load-balancer-controller:v2.13.4" already present on machine
+  Warning  BackOff          113s (x9 over 3m37s)  kubelet            Back-off restarting failed container aws-load-balancer-controller in pod aws-load-balancer-controller-5d57ccdf8c-t5jwk_kube-system(680ea676-4e6f-4654-9d42-1c59e4ffbe57)
+saqib@saqib-ThinkPad-T460s:~/Desktop/JavaProjects/FoodDeleivery/Order Service$ 
+
+
+
+
+
+
+# Wait 2 minutes for pods to start
+sleep 120
+
+kubectl get pods -n kube-system | grep load-balancer
+
+Check Controller Logs:
+bash
+kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller --tail=5
+
+
+
+🔧 PHASE 3: CREATE INGRESS
+Once the controller is running:
+
+bash
+kubectl apply -f order-service-ingress.yaml
+kubectl get ingress -o wide
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Change Service to ClusterIP
+Command:
+bash
+kubectl patch service order-service -p '{"spec":{"type":"ClusterIP"}}'
+
+service/order-service patched
+
+
+kubectl get service order-service
+NAME            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+order-service   ClusterIP   172.20.15.27   <none>        80/TCP    20m
+
+
+ Install Nginx Ingress Controller
+Command:
+bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/aws/deploy.yaml
+
+
+🔧 STEP 2.1: Fix Fargate Scheduling for Ingress
+We need to create a Fargate profile for ingress-nginx namespace:
+
+
+# Create Fargate profile for ingress-nginx namespace
+cat > ingress-fargate-profile.yaml << 'EOF'
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: food-delivery-prod
+  region: eu-west-3
+
+fargateProfiles:
+- name: fp-ingress-nginx
+  selectors:
+  - namespace: ingress-nginx
+EOF
+
+eksctl create fargateprofile -f ingress-fargate-profile.yaml
+
+kubectl get pods -n ingress-nginx -w
+

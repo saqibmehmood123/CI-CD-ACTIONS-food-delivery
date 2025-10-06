@@ -2,11 +2,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: order-service
+  # REMOVE all AWS LoadBalancer annotations
 spec:
+  type: ClusterIP  # ← CHANGE from LoadBalancer to ClusterIP
   selector:
     app: order-service
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8081
-  type: LoadBalancer
+  - port: 80
+    targetPort: 8081
+    protocol: TCP

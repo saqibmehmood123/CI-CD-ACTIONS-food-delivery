@@ -20,22 +20,17 @@ public class OrderController {
 
     @GetMapping("/order")
     public String placeOrder() {
-
-        System.out.println( " ---------------------------  this is order service i am sedning order   --------------------------");
-
-        // Set a initial status
-        /// @RequestBody
-        Order order = new Order();
-        order.setOrderId("1");
-        order.setStatus("true");
-        order.setItem("my tiem ");
-        order.setQuantity(4);
-        order.setCustomerId("2");
-
-
-        order.setStatus("PENDING");
-        // Send the entire Order object to the 'orders' topic. The key could be the orderId.
-   //     kafkaTemplate.send("orders", order.getOrderId(), order);
-        return "Order placed successfully: " + order.getOrderId();
+        // Add current timestamp and version
+        String timestamp = java.time.LocalDateTime.now().toString();
+        return "Order placed successfully! 🎯 | Order ID: " +
+                System.currentTimeMillis() + " | Time: " + timestamp + " | Version: 2.0";
     }
+
+    // Add new endpoint
+    @GetMapping("/order/status")
+    public String getOrderStatus() {
+        return "Order Status: DELIVERED ✅ | Last Updated: " +
+                java.time.LocalDateTime.now().toString();
+    }
+
 }
