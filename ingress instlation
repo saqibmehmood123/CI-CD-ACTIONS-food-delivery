@@ -130,6 +130,11 @@ curl -v "http://$INGRESS_URL/order"
 Run these commands to get complete information about your working Ingress setup! 🎯
 
 
+* k8s-default-orderser-ce903db43b-1714438.eu-west-3.elb.amazonaws.com/order
+
+
+
+
 
 
 
