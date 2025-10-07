@@ -7,8 +7,8 @@ on:
 env:
   AWS_REGION: eu-west-3
   ECR_REPOSITORY: food-delivery/order-service
-  EKS_CLUSTER: food-delivery-prod  # Updated cluster name
-  DEPLOYMENT_NAME: order-service
+  EKS_CLUSTER: food-delivery-prod
+  NAMESPACE: order-service
 
 jobs:
   deploy:
@@ -17,6 +17,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build with Maven
+      run: mvn clean package
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -36,20 +45,14 @@ jobs:
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        sed -i "s|image:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" k8s/order-service-deployment.yaml
 
     - name: Update kubeconfig
       run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
 
     - name: Deploy to EKS
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Update the deployment with new image
-        kubectl set image deployment/$DEPLOYMENT_NAME \
-          order-service=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n default
-        # Wait for rollout to complete
-        kubectl rollout status deployment/$DEPLOYMENT_NAME -n default
-        # Verify deployment
-        kubectl get deployments -n default
-        kubectl get pods -n default -l app=order-service
+        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+        kubectl apply -f k8s/ -n $NAMESPACE
+        kubectl rollout status deployment/order-service -n $NAMESPACE
+        kubectl get ingress -n $NAMESPACE
