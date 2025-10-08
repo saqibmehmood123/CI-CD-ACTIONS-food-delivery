@@ -63,5 +63,5 @@ jobs:
     - name: Get ALB URL
       run: |
         echo "Your application is deployed at:"
-        kubectl get ingress order-service-ingress -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        kubectl get ingress food-delivery-ingress -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
         echo ""
