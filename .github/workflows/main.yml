@@ -8,7 +8,7 @@ env:
   AWS_REGION: eu-west-3
   ECR_REPOSITORY: food-delivery/order-service
   EKS_CLUSTER: food-delivery-prod
-  NAMESPACE: order-service
+  NAMESPACE: default
 
 jobs:
   deploy:
