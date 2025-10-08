@@ -1,26 +1,13 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: v1
+kind: Service
 metadata:
-  name: food-delivery-ingress
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
+  name: order-service
+  namespace: default
 spec:
-  rules:
-  - http:
-      paths:
-      - path: /orders
-        pathType: Prefix
-        backend:
-          service:
-            name: order-service
-            port:
-              number: 8080
-      - path: /kitchen
-        pathType: Prefix
-        backend:
-          service:
-            name: kitchen-service
-            port:
-              number: 8080  # This matches service port, NOT targetPort
+  selector:
+    app: order-service
+  ports:
+    - protocol: TCP
+      port: 80        # External port (ingress uses this)
+      targetPort: 8080 # Internal port (app uses this)
+  type: ClusterIP

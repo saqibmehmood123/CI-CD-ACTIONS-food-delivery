@@ -1,10 +1,10 @@
-com/fooddelievery/web/OrderController.class
-com/fooddelievery/model/Order.class
 com/fooddelievery/query/view/OrderQueryController.class
-com/fooddelievery/event/OrderCreatedEvent.class
 com/fooddelievery/query/view/OrderEventConsumer.class
-com/fooddelievery/query/view/OrderView.class
 com/fooddelievery/command/CreateOrderCommand.class
 com/fooddelievery/command/OrderCommandController.class
 com/fooddelievery/OrderServiceApplication.class
+com/fooddelievery/web/OrderController.class
+com/fooddelievery/model/Order.class
+com/fooddelievery/event/OrderCreatedEvent.class
+com/fooddelievery/query/view/OrderView.class
 com/fooddelievery/event/DeliveryCompletedEvent.class

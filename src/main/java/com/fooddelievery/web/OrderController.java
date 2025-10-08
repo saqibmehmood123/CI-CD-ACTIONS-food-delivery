@@ -2,12 +2,10 @@ package com.fooddelievery.web;
 
 import com.fooddelievery.model.Order;
 //import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
+@RequestMapping("/orders")
 public class OrderController {
 
   ////  private final KafkaTemplate<String, Order> kafkaTemplate; // Note the type: KafkaTemplate<String, Order>
@@ -22,8 +20,7 @@ public class OrderController {
     public String placeOrder() {
         // Add current timestamp and version
         String timestamp = java.time.LocalDateTime.now().toString();
-        return "  thanks Siddique bhai ,   he is here : " +
-                System.currentTimeMillis() + " | Time: " + timestamp + " | Version: 2.0";
+        return "  mid night ci-cd " ;
     }
 
     // Add new endpoint
